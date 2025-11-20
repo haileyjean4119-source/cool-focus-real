@@ -1,11 +1,11 @@
-name: Find and Download APK
+name: Ultimate Build Debug
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  build:
+  debug:
     runs-on: ubuntu-latest
     
     steps:
@@ -18,28 +18,33 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         
-    - name: Build APK
+    - name: Analyze project structure
       run: |
-        chmod +x ./gradlew
-        ./gradlew assembleDebug
+        echo "=== 完整的项目结构 ==="
+        find . -type f -name "*.gradle" -o -name "*.kt" -o -name "*.xml" | sort
+        echo "=== 关键文件检查 ==="
+        [ -f "app/build.gradle" ] && echo "✅ app/build.gradle 存在" || echo "❌ app/build.gradle 缺失"
+        [ -f "app/src/main/AndroidManifest.xml" ] && echo "✅ AndroidManifest.xml 存在" || echo "❌ AndroidManifest.xml 缺失"
+        [ -f "app/src/main/java/com/example/coolfocus/MainActivity.kt" ] && echo "✅ MainActivity.kt 存在" || echo "❌ MainActivity.kt 缺失"
+        [ -f "app/src/main/res/layout/activity_main.xml" ] && echo "✅ activity_main.xml 存在" || echo "❌ activity_main.xml 缺失"
         
-    - name: Search for APK everywhere
+    - name: Check Gradle configuration
       run: |
-        echo "=== 深度搜索APK文件 ==="
-        find . -name "*.apk" -type f
-        echo "=== 检查build目录 ==="
-        find . -type d -name "build" | while read dir; do
-          echo "检查目录: $dir"
-          find "$dir" -name "*.apk" -type f 2>/dev/null || echo "  这个build目录没有APK"
-        done
-        echo "=== 所有文件类型统计 ==="
-        find . -type f | grep -E "\.(apk|aab|jar)$" || echo "没有找到相关文件"
+        echo "=== Gradle配置检查 ==="
+        ./gradlew projects --console=plain || echo "Gradle项目列表失败"
+        echo "=== 可用任务 ==="
+        ./gradlew tasks --console=plain | grep -i assemble || echo "没有找到assemble任务"
         
-    - name: Upload ANY found APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: possible-apk-files
-        path: |
-          **/*.apk
-          **/*.aab
-        if-no-files-found: warn
+    - name: Try building with diagnostics
+      run: |
+        echo "=== 尝试编译并显示详细输出 ==="
+        ./gradlew clean
+        ./gradlew assembleDebug --console=plain --info --stacktrace
+        echo "编译退出码: $?"
+        
+    - name: Final APK search
+      run: |
+        echo "=== 最终APK搜索 ==="
+        find . -type f -name "*.apk" -exec ls -la {} \; || echo "确认：没有生成任何APK文件"
+        echo "=== 所有输出文件 ==="
+        find app/build -type f 2>/dev/null | head -20 || echo "app/build目录不存在或为空"
