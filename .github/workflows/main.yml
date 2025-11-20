@@ -1,4 +1,4 @@
-name: Build Android APK - Debug Version
+name: Find and Download APK
 
 on:
   push:
@@ -18,27 +18,28 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         
-    - name: Check project structure
+    - name: Build APK
       run: |
-        echo "=== 项目结构 ==="
-        ls -la
-        echo "=== App目录 ==="
-        ls -la app/ || echo "没有app目录"
-        echo "=== 源代码检查 ==="
-        find app/src -name "*.kt" -type f || echo "没有找到Kotlin文件"
-        find app/src -name "*.xml" -type f || echo "没有找到XML文件"
+        chmod +x ./gradlew
+        ./gradlew assembleDebug
         
-    - name: Make gradlew executable
-      run: chmod +x ./gradlew
-      
-    - name: Build with detailed logs
+    - name: Search for APK everywhere
       run: |
-        echo "=== 开始编译 ==="
-        ./gradlew assembleDebug --info --stacktrace
-        echo "=== 编译完成 ==="
+        echo "=== 深度搜索APK文件 ==="
+        find . -name "*.apk" -type f
+        echo "=== 检查build目录 ==="
+        find . -type d -name "build" | while read dir; do
+          echo "检查目录: $dir"
+          find "$dir" -name "*.apk" -type f 2>/dev/null || echo "  这个build目录没有APK"
+        done
+        echo "=== 所有文件类型统计 ==="
+        find . -type f | grep -E "\.(apk|aab|jar)$" || echo "没有找到相关文件"
         
-    - name: Find all build outputs
-      run: |
-        echo "=== 查找所有生成的文件 ==="
-        find . -name "*.apk" -type f || echo "没有找到APK文件"
-        find . -name "build" -type d | head -10 || echo "没有build目录"
+    - name: Upload ANY found APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: possible-apk-files
+        path: |
+          **/*.apk
+          **/*.aab
+        if-no-files-found: warn
