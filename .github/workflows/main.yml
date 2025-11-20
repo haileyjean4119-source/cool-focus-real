@@ -1,9 +1,7 @@
-name: Build Android APK
+name: Build Android APK - Debug Version
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
     branches: [ main ]
 
 jobs:
@@ -20,18 +18,27 @@ jobs:
         java-version: '11'
         distribution: 'temurin'
         
+    - name: Check project structure
+      run: |
+        echo "=== 项目结构 ==="
+        ls -la
+        echo "=== App目录 ==="
+        ls -la app/ || echo "没有app目录"
+        echo "=== 源代码检查 ==="
+        find app/src -name "*.kt" -type f || echo "没有找到Kotlin文件"
+        find app/src -name "*.xml" -type f || echo "没有找到XML文件"
+        
     - name: Make gradlew executable
       run: chmod +x ./gradlew
       
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
-      
-    - name: List generated APK files
-      run: find . -name "*.apk" -type f
-      
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: app-debug-apk
-        path: app/build/outputs/apk/debug/*.apk
-        retention-days: 7
+    - name: Build with detailed logs
+      run: |
+        echo "=== 开始编译 ==="
+        ./gradlew assembleDebug --info --stacktrace
+        echo "=== 编译完成 ==="
+        
+    - name: Find all build outputs
+      run: |
+        echo "=== 查找所有生成的文件 ==="
+        find . -name "*.apk" -type f || echo "没有找到APK文件"
+        find . -name "build" -type d | head -10 || echo "没有build目录"
